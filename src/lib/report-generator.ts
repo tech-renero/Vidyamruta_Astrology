@@ -147,12 +147,12 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
 
   const planetYears: Record<string, number> = { Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17, Ketu: 7, Venus: 20 };
 
-  // Colors
-  const orange = [230, 81, 0];     // #e65100
-  const darkText = [33, 33, 33];   // #212121
-  const mutedText = [117, 117, 117]; // #757575
-  const warmBg = [255, 248, 225];  // #fff8e1
-  const saffronLight = [255, 243, 224]; // #fff3e0
+  // Colors (as const → tuple type so spread works with jsPDF methods)
+  const orange = [230, 81, 0] as const;     // #e65100
+  const darkText = [33, 33, 33] as const;   // #212121
+  const mutedText = [117, 117, 117] as const; // #757575
+  const warmBg = [255, 248, 225] as const;  // #fff8e1
+  const saffronLight = [255, 243, 224] as const; // #fff3e0
 
   function checkPage(needed: number) {
     if (y + needed > H - 20) {
