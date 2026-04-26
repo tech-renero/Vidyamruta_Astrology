@@ -11,6 +11,11 @@ export default function DashboardPage() {
   const [savedKundlis, setSavedKundlis] = useState<any[]>([]);
   const [loadingKundlis, setLoadingKundlis] = useState(true);
   const [userRole, setUserRole] = useState<string>('user');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings'>('dashboard');
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [settingsForm, setSettingsForm] = useState({ date_of_birth: '', time_of_birth: '', birth_location: '' });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [personalKundli, setPersonalKundli] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -26,17 +31,40 @@ export default function DashboardPage() {
       setSavedKundlis(kundlis || []);
       setLoadingKundlis(false);
 
-      // Fetch user role - fallback to user_metadata if user_profiles fetch fails
+      // Fetch user profile for settings
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('role')
+        .select('*')
         .eq('id', user.id)
         .single();
       
-      if (user.user_metadata?.role === 'astrologer') {
-        setUserRole('astrologer');
-      } else if (profile?.role) {
-        setUserRole(profile.role);
+      if (profile) {
+        setUserProfile(profile);
+        setSettingsForm({
+          date_of_birth: profile.date_of_birth || '',
+          time_of_birth: profile.time_of_birth || '',
+          birth_location: profile.latitude ? 'Custom Location' : '', // We use birth_location conceptually, but we can just use the saved location in metadata if we want. Actually let's use user_metadata if birth_location is missing.
+        });
+        
+        if (user.user_metadata?.role === 'astrologer') {
+          setUserRole('astrologer');
+        } else if (profile.role) {
+          setUserRole(profile.role);
+        }
+        
+        // Generate personal kundli if details exist
+        if (profile.date_of_birth && profile.time_of_birth && user.user_metadata?.birth_location) {
+           try {
+             const astrologyService = await import('@/services/astrologyService');
+             const kData = await astrologyService.getKundliForDetails({
+               name: profile.full_name || 'Me',
+               date: profile.date_of_birth,
+               time: profile.time_of_birth.substring(0,5),
+               location: user.user_metadata.birth_location
+             });
+             setPersonalKundli(kData);
+           } catch(e) { console.error("Failed to generate personal kundli", e); }
+        }
       } else if (user.user_metadata?.role) {
         setUserRole(user.user_metadata.role);
       }
@@ -44,6 +72,23 @@ export default function DashboardPage() {
 
     fetchData();
   }, [user, supabase]);
+
+  const saveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    await supabase.from('user_profiles').update({
+      date_of_birth: settingsForm.date_of_birth,
+      time_of_birth: settingsForm.time_of_birth + ':00',
+    }).eq('id', user?.id);
+    
+    // Save location to user_metadata as schema might not have it
+    await supabase.auth.updateUser({
+      data: { birth_location: settingsForm.birth_location }
+    });
+    
+    setSavingSettings(false);
+    window.location.reload();
+  };
 
   const deleteKundli = async (id: string) => {
     await supabase.from('saved_kundlis').delete().eq('id', id);
@@ -98,6 +143,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setActiveTab(activeTab === 'dashboard' ? 'settings' : 'dashboard')} className="btn-secondary text-xs py-2 px-4">
+              {activeTab === 'dashboard' ? '⚙️ Settings' : '📊 Dashboard'}
+            </button>
             {userRole === 'astrologer' && (
               <Link href="/astrologer/dashboard" className="btn-secondary text-xs py-2 px-4">
                 🧘 Astrologer Portal
@@ -109,7 +157,34 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {activeTab === 'settings' ? (
+          <div className="card p-8 max-w-2xl mx-auto space-y-6 animate-fadeIn">
+            <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Profile Settings</h2>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Save your birth details to automatically generate your personal horoscope and panchang on your dashboard.</p>
+            
+            <form onSubmit={saveSettings} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="input-label">Date of Birth</label>
+                  <input type="date" className="input-field" value={settingsForm.date_of_birth} onChange={e => setSettingsForm({...settingsForm, date_of_birth: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="input-label">Time of Birth</label>
+                  <input type="time" className="input-field" value={settingsForm.time_of_birth} onChange={e => setSettingsForm({...settingsForm, time_of_birth: e.target.value})} required />
+                </div>
+              </div>
+              <div>
+                <label className="input-label">Birth Place (City, State, Country)</label>
+                <input type="text" className="input-field" placeholder="e.g., Mumbai, Maharashtra, India" value={settingsForm.birth_location || user?.user_metadata?.birth_location || ''} onChange={e => setSettingsForm({...settingsForm, birth_location: e.target.value})} required />
+              </div>
+              <button type="submit" disabled={savingSettings} className="btn-primary w-full py-3">
+                {savingSettings ? 'Saving...' : 'Save Details'}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <>
+            {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { icon: '📜', label: 'Generate Kundli', href: '/kundli', bg: 'var(--primary-lighter)' },
@@ -125,6 +200,28 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
+
+        {personalKundli && (
+          <div className="card p-6 border-l-4" style={{ borderColor: 'var(--primary)' }}>
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <span>🌟</span> Your Personal Horoscope
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Ascendant</div>
+                <div className="font-bold">{personalKundli.chartData?.ascendant?.rashiName || 'Unknown'}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Moon Sign</div>
+                <div className="font-bold">{personalKundli.chartData?.moonDetails?.rashiName || 'Unknown'}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Nakshatra</div>
+                <div className="font-bold">{personalKundli.chartData?.moonDetails?.nakshatra || 'Unknown'}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Saved Kundlis */}
@@ -244,6 +341,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+          </>
+        )}
       </div>
     </main>
   );

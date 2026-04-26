@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { zodiacSigns, getTodayDate, type ZodiacSign } from '@/lib/horoscope-data';
+import { getTodayHoroscope, getWeeklyHoroscopeHistory, type HoroscopeEntry } from '@/services/horoscopeService';
 
-type TabKey = 'daily' | 'career' | 'love' | 'health' | 'finance';
+type TabKey = 'daily' | 'history';
 
 const tabs: { key: TabKey; label: string; icon: string }[] = [
-  { key: 'daily', label: 'Daily', icon: '🌟' },
-  { key: 'career', label: 'Career', icon: '💼' },
-  { key: 'love', label: 'Love', icon: '❤️' },
-  { key: 'health', label: 'Health', icon: '🏥' },
-  { key: 'finance', label: 'Finance', icon: '💰' },
+  { key: 'daily', label: 'Today\'s Prediction', icon: '🌟' },
+  { key: 'history', label: 'Weekly History', icon: '📅' },
 ];
 
 function SignSelector({ signs, selectedId, onSelect }: { signs: ZodiacSign[]; selectedId: string; onSelect: (id: string) => void }) {
@@ -55,18 +53,34 @@ function HoroscopeContent() {
   const initialSign = searchParams.get('sign') || 'aries';
   const [selectedSignId, setSelectedSignId] = useState(initialSign);
   const [activeTab, setActiveTab] = useState<TabKey>('daily');
+  const [todayHoroscope, setTodayHoroscope] = useState<HoroscopeEntry | null>(null);
+  const [weeklyHistory, setWeeklyHistory] = useState<HoroscopeEntry[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const selectedSign = zodiacSigns.find(s => s.id === selectedSignId) || zodiacSigns[0];
 
-  const getPrediction = (tab: TabKey): string => {
-    switch (tab) {
-      case 'daily': return selectedSign.dailyPrediction;
-      case 'career': return selectedSign.careerPrediction;
-      case 'love': return selectedSign.lovePrediction;
-      case 'health': return selectedSign.healthPrediction;
-      case 'finance': return selectedSign.financePrediction;
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [today, history] = await Promise.all([
+          getTodayHoroscope(selectedSignId),
+          getWeeklyHoroscopeHistory(selectedSignId)
+        ]);
+        if (isMounted) {
+          setTodayHoroscope(today);
+          setWeeklyHistory(history);
+        }
+      } catch (err) {
+        console.error("Failed to fetch horoscope data", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
-  };
+    fetchData();
+    return () => { isMounted = false; };
+  }, [selectedSignId]);
 
   return (
     <main style={{ background: 'var(--surface)' }}>
@@ -178,9 +192,30 @@ function HoroscopeContent() {
                 </div>
               </div>
 
-              <p className="text-base leading-relaxed" style={{ color: 'var(--text-secondary)', lineHeight: '1.8' }}>
-                {getPrediction(activeTab)}
-              </p>
+              {activeTab === 'daily' && (
+                <p className="text-base leading-relaxed" style={{ color: 'var(--text-secondary)', lineHeight: '1.8' }}>
+                  {loading ? 'Consulting the stars...' : (todayHoroscope?.prediction || selectedSign.dailyPrediction)}
+                </p>
+              )}
+
+              {activeTab === 'history' && (
+                <div className="space-y-4">
+                  {loading ? (
+                    <p className="text-base" style={{ color: 'var(--text-secondary)' }}>Consulting the stars...</p>
+                  ) : weeklyHistory.length > 0 ? (
+                    weeklyHistory.map((entry, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border" style={{ borderColor: 'var(--border-light)' }}>
+                        <div className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>
+                          {new Date(entry.horoscope_date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </div>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{entry.prediction}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recent history available for {selectedSign.name}.</p>
+                  )}
+                </div>
+              )}
 
               <div className="p-5 rounded-xl border-l-4" style={{ background: 'var(--primary-lighter)', borderColor: 'var(--primary)' }}>
                 <p className="text-sm italic font-medium" style={{ color: 'var(--text-secondary)' }}>

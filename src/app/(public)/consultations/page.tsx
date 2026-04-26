@@ -94,15 +94,23 @@ export default function ConsultationsPage() {
 
   useEffect(() => {
     const fetchAstrologers = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('astrologer_profiles')
         .select('*')
-        .order('rating', { ascending: false });
+        .order('created_at', { ascending: false });
       
-      if (data && data.length > 0) {
-        setAstrologers(data);
+      if (error) {
+        console.error('Failed to fetch astrologers:', JSON.stringify(error, null, 2));
       }
-      // If empty, keep mock data
+
+      if (data) {
+        // Always put real astrologers first, then fill with mocks for any not already present
+        const existingNames = new Set(data.map((d: any) => d.display_name));
+        const filteredMocks = mockAstrologers.filter(m => !existingNames.has(m.display_name));
+        const combined = [...data, ...filteredMocks];
+        setAstrologers(combined);
+      }
+      // If fetch failed entirely, keep the initial mockAstrologers state
     };
     fetchAstrologers();
   }, [supabase]);
@@ -185,9 +193,13 @@ export default function ConsultationsPage() {
             <div key={astrologer.id} className="card p-6 space-y-4 animate-fadeInUp" style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, var(--primary), var(--saffron))' }}>
-                    {astrologer.display_name.charAt(0)}
-                  </div>
+                  {astrologer.avatar_url ? (
+                    <img src={astrologer.avatar_url} alt={astrologer.display_name} className="w-14 h-14 rounded-2xl object-cover" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, var(--primary), var(--saffron))' }}>
+                      {astrologer.display_name.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{astrologer.display_name}</h3>
                     <div className="flex items-center gap-1 mt-0.5">

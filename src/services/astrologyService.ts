@@ -47,41 +47,101 @@ export async function getKundliForDetails(details: UserDetails) {
 
   const kData = generateKundli(dateObj, { latitude: lat, longitude: lon });
   
-  // Format houses to match our KundliChart expected props
-  const mappedHouses = kData.houses.map((h: any, i: number) => ({
-    houseNumber: i + 1,
-    rashi: h.rashi,
-    planets: h.planets
-  }));
-
   const { generatePanchang } = require('@/lib/astrology');
   const panchangData = generatePanchang(dateObj, { latitude: lat, longitude: lon });
+
+  // Format houses to match our KundliChart expected props
+  const mappedHouses = kData.houses.map((h: any, i: number) => {
+    const planetsWithDegrees = h.planets.map((pName: string) => {
+      const posKey = pName.toLowerCase();
+      const pos = panchangData.planetaryPositions?.[posKey];
+      let degree = undefined;
+      if (pos) {
+         degree = pos.degree !== undefined ? pos.degree : pos.longitude % 30;
+      }
+      return { name: pName, degree };
+    });
+    return {
+      houseNumber: i + 1,
+      rashi: h.rashi,
+      planets: planetsWithDegrees
+    };
+  });
 
   // Calculate accurate Moon Rashi and Nakshatra
   const moon = panchangData.planetaryPositions?.moon || panchangData.planetaryPositions?.Moon;
   let moonDetails = null;
   if (moon) {
-    // IMPORTANT: moon.degree is degree-within-rashi (0-30°), NOT full longitude.
-    // We MUST use moon.longitude (0-360°) for rashi and nakshatra calculations.
-    const moonLon = moon.longitude;
+    // CRITICAL: The library returns TROPICAL longitude.
+    // For Vedic/sidereal calculations we must subtract the Lahiri Ayanamsha.
+    // getAyanamsa() returns the Lahiri ayanamsa in degrees.
+    const { getAyanamsa } = require('@ishubhamx/panchangam-js');
+    const ayanamsa = getAyanamsa(dateObj); // e.g. 23.8545 for Oct 1999
+    const tropicalMoonLon = moon.longitude;
+    // Sidereal longitude (0-360, wrapping)
+    const moonLon = ((tropicalMoonLon - ayanamsa) % 360 + 360) % 360;
+
     const rashiNames = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
     const nakshatraNames = [
       'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashirsha', 'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha',
       'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha',
       'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'
     ];
-    
-    // Each rashi is 30 degrees
+    const nakshatraLords = ['Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury','Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury','Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury'];
+    const dashaDurations: Record<string, number> = { Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17 };
+
+    // Each rashi is 30 degrees (sidereal)
     const rashiIndex = Math.floor(moonLon / 30) % 12;
-    // Each nakshatra is 13 degrees 20 minutes = 13.333333... degrees
-    const nakshatraIndex = Math.floor(moonLon / (360 / 27));
-    const pada = Math.floor((moonLon % (360 / 27)) / (360 / 108)) + 1;
+    // Each nakshatra is 13°20' = 13.3333... degrees
+    const nakshatraLength = 360 / 27;
+    const nakshatraIndex = Math.floor(moonLon / nakshatraLength);
+    const degInNak = moonLon % nakshatraLength;
+    const pada = Math.floor(degInNak / (nakshatraLength / 4)) + 1;
+
+    // Vimshottari balance at birth based on sidereal Moon
+    const lord = nakshatraLords[nakshatraIndex];
+    const fractionRemaining = (nakshatraLength - degInNak) / nakshatraLength;
+    const balanceYears = fractionRemaining * dashaDurations[lord];
 
     moonDetails = {
       rashiName: rashiNames[rashiIndex],
       nakshatra: nakshatraNames[nakshatraIndex],
+      nakshatraLord: lord,
       pada: pada,
-      degree: moonLon
+      degree: moonLon, // sidereal
+      tropicalDegree: tropicalMoonLon,
+      ayanamsa,
+      dashaBalance: balanceYears,
+    };
+  }
+
+  // Build corrected dasha cycle from sidereal Moon
+  let dashaDataOverride = null;
+  if (moonDetails) {
+    const fixedOrder = ['Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury'];
+    const dashaDurations: Record<string, number> = { Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17 };
+    const startIdx = fixedOrder.indexOf(moonDetails.nakshatraLord);
+    const fullCycle: any[] = [];
+    let curDate = new Date(dateObj);
+
+    // First entry: balance of current dasha
+    const firstEnd = new Date(curDate.getTime() + moonDetails.dashaBalance * 365.2425 * 86400 * 1000);
+    fullCycle.push({ planet: moonDetails.nakshatraLord, startTime: new Date(curDate), endTime: firstEnd });
+    curDate = firstEnd;
+
+    for (let i = 1; i < 9; i++) {
+      const planet = fixedOrder[(startIdx + i) % 9];
+      const yrs = dashaDurations[planet];
+      const endDate = new Date(curDate.getTime() + yrs * 365.2425 * 86400 * 1000);
+      fullCycle.push({ planet, startTime: new Date(curDate), endTime: endDate });
+      curDate = endDate;
+    }
+
+    dashaDataOverride = {
+      birthNakshatra: moonDetails.nakshatra,
+      nakshatraPada: moonDetails.pada,
+      dashaBalance: `${moonDetails.nakshatraLord}: ${moonDetails.dashaBalance.toFixed(2)}y`,
+      fullCycle,
     };
   }
 
@@ -89,7 +149,10 @@ export async function getKundliForDetails(details: UserDetails) {
     ...kData,
     mappedHouses,
     panchangData,
-    moonDetails
+    moonDetails,
+    chartData: { ascendant: kData.ascendant, moonDetails },
+    // Override the library's dasha with our sidereal-correct calculation
+    dashaData: dashaDataOverride || panchangData.vimshottariDasha,
   };
 }
 

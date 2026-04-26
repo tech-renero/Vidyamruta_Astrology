@@ -2,19 +2,19 @@ import { render, screen } from '@testing-library/react';
 import Home from '@/app/page';
 
 describe('Home page', () => {
-  it('renders a heading', () => {
+  it('renders the main heading', () => {
     render(<Home />);
     
     const heading = screen.getByRole('heading', {
-      name: /To get started, edit the page\.tsx file\./i,
+      name: /Your Cosmic Blueprint Awaits/i,
     });
 
     expect(heading).toBeInTheDocument();
   });
   
-  it('renders Next.js logo', () => {
+  it('renders generation buttons', () => {
     render(<Home />);
-    const logo = screen.getByAltText('Next.js logo');
-    expect(logo).toBeInTheDocument();
+    const button = screen.getByText(/Generate Free Kundli/i);
+    expect(button).toBeInTheDocument();
   });
 });

@@ -59,7 +59,8 @@ ALTER TABLE public.astrologer_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.consultation_bookings ENABLE ROW LEVEL SECURITY;
 
 -- Saved Kundlis: Users can manage own
-CREATE POLICY "Users can manage own kundlis" ON public.saved_kundlis FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can view/update/delete own kundlis" ON public.saved_kundlis FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own kundlis" ON public.saved_kundlis FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Astrologer Profiles: Public read, owner write
 CREATE POLICY "Anyone can view astrologer profiles" ON public.astrologer_profiles FOR SELECT USING (true);

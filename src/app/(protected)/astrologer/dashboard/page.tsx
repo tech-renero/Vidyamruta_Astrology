@@ -17,6 +17,7 @@ export default function AstrologerDashboardPage() {
     bio: '',
     hourly_rate: 0,
     is_available: true,
+    avatar_url: '',
   });
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function AstrologerDashboardPage() {
           bio: astroProfile.bio || '',
           hourly_rate: astroProfile.hourly_rate,
           is_available: astroProfile.is_available,
+          avatar_url: astroProfile.avatar_url || '',
         });
 
         // Fetch bookings
@@ -64,6 +66,7 @@ export default function AstrologerDashboardPage() {
         bio: editForm.bio,
         hourly_rate: editForm.hourly_rate,
         is_available: editForm.is_available,
+        avatar_url: editForm.avatar_url,
         updated_at: new Date().toISOString(),
       })
       .eq('id', profile.id);
@@ -128,9 +131,13 @@ export default function AstrologerDashboardPage() {
         {/* Header */}
         <div className="card p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" style={{ background: 'linear-gradient(135deg, var(--primary-lighter), #fff8e1)' }}>
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, var(--primary), var(--saffron))' }}>
-              🧘
-            </div>
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.display_name} className="w-14 h-14 rounded-2xl object-cover" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, var(--primary), var(--saffron))' }}>
+                🧘
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>
                 Astrologer Portal
@@ -183,6 +190,10 @@ export default function AstrologerDashboardPage() {
                 <label className="input-label">Hourly Rate (₹)</label>
                 <input type="number" className="input-field" value={editForm.hourly_rate} onChange={e => setEditForm({...editForm, hourly_rate: parseInt(e.target.value)})} />
               </div>
+            </div>
+            <div>
+              <label className="input-label">Profile Picture URL</label>
+              <input type="url" className="input-field" placeholder="https://example.com/avatar.jpg" value={editForm.avatar_url || ''} onChange={e => setEditForm({...editForm, avatar_url: e.target.value})} />
             </div>
             <div>
               <label className="input-label">Bio</label>

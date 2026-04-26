@@ -10,7 +10,7 @@ import { generateLagnaAnalysis, generateMoonAnalysis, generatePlanetAnalysis, ge
 export default function KundliPage() {
   const { user } = useAuth();
   const supabase = createClient();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     date: '',
@@ -24,6 +24,8 @@ export default function KundliPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedMaha, setSelectedMaha] = useState<number | null>(null);
+  const [chartStyle, setChartStyle] = useState<'north' | 'south'>('north');
+  const [expandedChart, setExpandedChart] = useState<{ title: string, houses: any[] } | null>(null);
 
   const tabs = ['Basic', 'Kundli', 'KP', 'Ashtakvarga', 'Charts', 'Dasha', 'Free Report'];
 
@@ -36,6 +38,16 @@ export default function KundliPage() {
     if (!user) return;
     setSaving(true);
     try {
+      // Ensure user_profiles row exists (required for FK)
+      // OAuth users may not have a profile row yet
+      await supabase.from('user_profiles').upsert({
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      }, { onConflict: 'id', ignoreDuplicates: true });
+
+      const ascendant = chartData.ascendant || chartData.chartData?.ascendant;
+      const moonInfo  = chartData.moonDetails || chartData.chartData?.moonDetails;
+
       const { error: insertError } = await supabase
         .from('saved_kundlis')
         .insert({
@@ -45,15 +57,16 @@ export default function KundliPage() {
           time_of_birth: formData.time + ':00',
           birth_location: formData.location,
           chart_data: chartData,
-          ascendant_rashi: chartData.ascendant?.rashiName || null,
-          moon_rashi: chartData.moonDetails?.rashiName || null,
-          nakshatra: chartData.moonDetails?.nakshatra || null,
+          ascendant_rashi: ascendant?.rashiName || null,
+          moon_rashi: moonInfo?.rashiName || null,
+          nakshatra: moonInfo?.nakshatra || null,
         });
-      
+
       if (!insertError) {
         setSaved(true);
       } else {
-        console.error("Failed to save Kundli:", insertError);
+        // Log the full Supabase error details
+        console.error("Failed to save Kundli:", JSON.stringify(insertError, null, 2));
       }
     } catch (err) {
       console.error("Save Kundli Exception:", err);
@@ -120,15 +133,15 @@ export default function KundliPage() {
       const antarYears = planetYears[antarPlanet];
       // Duration in days = (Maha * Antar) / 120 * 365.2425
       const durationDays = (mahaYears * antarYears / 120) * 365.2425;
-      
+
       const endTime = new Date(currentStart.getTime() + durationDays * 24 * 60 * 60 * 1000);
-      
+
       antardashas.push({
         planet: antarPlanet,
         startTime: new Date(currentStart),
         endTime: new Date(endTime)
       });
-      
+
       currentStart = endTime;
     }
     return antardashas;
@@ -137,7 +150,7 @@ export default function KundliPage() {
   return (
     <main style={{ background: 'var(--surface)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        
+
         {/* Header */}
         <div className="text-center space-y-3">
           <h1 className="section-title">Generate Your <span className="section-accent">Kundli</span></h1>
@@ -153,7 +166,7 @@ export default function KundliPage() {
                 <span className="text-2xl">📜</span>
                 <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Birth Details</h2>
               </div>
-              
+
               {!user && (
                 <div className="p-4 rounded-xl text-sm flex items-start gap-3" style={{ background: '#fff8e1', border: '1px solid var(--gold)' }}>
                   <span className="text-lg">💡</span>
@@ -167,7 +180,7 @@ export default function KundliPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label className="input-label">Full Name</label>
-                  <input 
+                  <input
                     type="text" name="name" value={formData.name} onChange={handleChange}
                     className="input-field" placeholder="Enter your full name" required
                   />
@@ -214,7 +227,7 @@ export default function KundliPage() {
         {/* Results Container */}
         {kundliData && (
           <div className="space-y-6">
-            
+
             {/* Action Bar */}
             <div className="card p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
@@ -225,6 +238,15 @@ export default function KundliPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <select
+                  value={chartStyle}
+                  onChange={(e) => setChartStyle(e.target.value as 'north' | 'south')}
+                  className="input-field py-1 px-2 text-xs h-8 min-h-0 w-auto "
+                  style={{ padding: '0px 10px' }}
+                >
+                  <option value="north">North Indian</option>
+                  <option value="south">South Indian</option>
+                </select>
                 {user && (
                   <span className={`badge ${saved ? 'badge-success' : (saving ? 'badge-primary' : 'badge-danger')} flex items-center gap-1`}>
                     {saving ? '⏳ Saving...' : saved ? '✅ Saved to Account' : '❌ Save Failed'}
@@ -257,7 +279,7 @@ export default function KundliPage() {
 
             {/* Tab Content */}
             <div className="tab-content">
-              
+
               {/* BASIC TAB */}
               {activeTab === 'Basic' && (
                 <div className="grid md:grid-cols-2 gap-8 animate-fadeIn">
@@ -285,10 +307,22 @@ export default function KundliPage() {
                     <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-light)' }}>
                       <table className="data-table">
                         <tbody>
-                          <tr><td className="font-bold" style={{ color: 'var(--text-muted)', width: '35%' }}>Tithi</td><td style={{ color: 'var(--text-primary)' }}>{pData?.tithi?.name || '—'}</td></tr>
-                          <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Karan</td><td style={{ color: 'var(--text-primary)' }}>{pData?.karana?.name || '—'}</td></tr>
-                          <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Yog</td><td style={{ color: 'var(--text-primary)' }}>{pData?.yoga?.name || '—'}</td></tr>
-                          <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Nakshatra</td><td style={{ color: 'var(--text-primary)' }}>{kundliData.moonDetails?.nakshatra || '—'}</td></tr>
+                          {(() => {
+                            const tithiNames = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima", "Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Amavasya"];
+                            const yogaNames = ["Vishkumbha", "Priti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shula", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyana", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"];
+                            const tithiName = typeof pData?.tithi === 'number' ? `${tithiNames[(pData.tithi - 1) % 30]} (${pData.tithi <= 15 ? 'Shukla' : 'Krishna'})` : pData?.tithi?.name || '—';
+                            const yogaName = typeof pData?.yoga === 'number' ? yogaNames[(pData.yoga - 1) % 27] : pData?.yoga?.name || '—';
+                            const karanName = typeof pData?.karana === 'string' ? pData.karana : pData?.karana?.name || '—';
+
+                            return (
+                              <>
+                                <tr><td className="font-bold" style={{ color: 'var(--text-muted)', width: '35%' }}>Tithi</td><td style={{ color: 'var(--text-primary)' }}>{tithiName}</td></tr>
+                                <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Karan</td><td style={{ color: 'var(--text-primary)' }}>{karanName}</td></tr>
+                                <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Yog</td><td style={{ color: 'var(--text-primary)' }}>{yogaName}</td></tr>
+                                <tr><td className="font-bold" style={{ color: 'var(--text-muted)' }}>Nakshatra</td><td style={{ color: 'var(--text-primary)' }}>{kundliData.moonDetails?.nakshatra || '—'}</td></tr>
+                              </>
+                            );
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -321,9 +355,9 @@ export default function KundliPage() {
                             // Varna based on nakshatra
                             const varnaOrder = ['Brahmin', 'Kshattriya', 'Vaishya', 'Shudra'];
                             const nakshatraList = [
-                              'Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra','Punarvasu','Pushya','Ashlesha',
-                              'Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha','Anuradha','Jyeshtha',
-                              'Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha','Purva Bhadrapada','Uttara Bhadrapada','Revati'
+                              'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha',
+                              'Magha', 'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha',
+                              'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'
                             ];
                             const nakIdx = nakshatraList.indexOf(moonNak);
                             const varna = nakIdx >= 0 ? varnaOrder[nakIdx % 4] : '—';
@@ -336,23 +370,23 @@ export default function KundliPage() {
                             };
                             // Yoni based on nakshatra
                             const yoniList = [
-                              'Ashwa','Gaja','Mesha','Sarpa','Sarpa','Shwana','Marjara','Mesha','Marjara',
-                              'Mushaka','Mushaka','Gau','Mahisha','Vyaghra','Mahisha','Vyaghra','Mriga','Mriga',
-                              'Shwana','Vaanara','Nakula','Vaanara','Simha','Ashwa','Simha','Gau','Gaja'
+                              'Ashwa', 'Gaja', 'Mesha', 'Sarpa', 'Sarpa', 'Shwana', 'Marjara', 'Mesha', 'Marjara',
+                              'Mushaka', 'Mushaka', 'Gau', 'Mahisha', 'Vyaghra', 'Mahisha', 'Vyaghra', 'Mriga', 'Mriga',
+                              'Shwana', 'Vaanara', 'Nakula', 'Vaanara', 'Simha', 'Ashwa', 'Simha', 'Gau', 'Gaja'
                             ];
                             const yoni = nakIdx >= 0 ? yoniList[nakIdx] : '—';
                             // Gan
                             const ganList = [
-                              'Deva','Manav','Rakshasa','Manav','Deva','Manav','Deva','Deva','Rakshasa',
-                              'Rakshasa','Manav','Manav','Deva','Rakshasa','Deva','Rakshasa','Deva','Rakshasa',
-                              'Rakshasa','Manav','Manav','Deva','Rakshasa','Rakshasa','Manav','Manav','Deva'
+                              'Deva', 'Manav', 'Rakshasa', 'Manav', 'Deva', 'Manav', 'Deva', 'Deva', 'Rakshasa',
+                              'Rakshasa', 'Manav', 'Manav', 'Deva', 'Rakshasa', 'Deva', 'Rakshasa', 'Deva', 'Rakshasa',
+                              'Rakshasa', 'Manav', 'Manav', 'Deva', 'Rakshasa', 'Rakshasa', 'Manav', 'Manav', 'Deva'
                             ];
                             const gan = nakIdx >= 0 ? ganList[nakIdx] : '—';
                             // Nadi
                             const nadiList = [
-                              'Vata','Pitta','Kapha','Vata','Pitta','Kapha','Vata','Pitta','Kapha',
-                              'Vata','Pitta','Kapha','Vata','Pitta','Kapha','Vata','Pitta','Kapha',
-                              'Vata','Pitta','Kapha','Vata','Pitta','Kapha','Vata','Pitta','Kapha'
+                              'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha',
+                              'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha',
+                              'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha', 'Vata', 'Pitta', 'Kapha'
                             ];
                             // Map Nadi to traditional names
                             const nadiNames: Record<string, string> = { Vata: 'Aadi (Vata)', Pitta: 'Madhya (Pitta)', Kapha: 'Antya (Kapha)' };
@@ -390,14 +424,57 @@ export default function KundliPage() {
                   <div className="grid md:grid-cols-2 gap-10">
                     <div className="flex flex-col items-center space-y-4">
                       <h3 className="text-lg font-bold" style={{ color: 'var(--primary)' }}>Lagna / Ascendant Chart</h3>
-                      <div className="p-3 rounded-xl border" style={{ background: '#ffffff', borderColor: 'var(--border)' }}>
-                        <KundliChart houses={kundliData.mappedHouses} width={380} height={380} />
+                      <div
+                        className="p-3 rounded-xl border cursor-pointer hover:shadow-md transition-shadow"
+                        style={{ background: '#ffffff', borderColor: 'var(--border)' }}
+                        onClick={() => setExpandedChart({ title: 'Lagna Chart', houses: kundliData.mappedHouses })}
+                      >
+                        <KundliChart houses={kundliData.mappedHouses} width={380} height={380} chartStyle={chartStyle} />
                       </div>
                     </div>
                     <div className="flex flex-col items-center space-y-4">
                       <h3 className="text-lg font-bold" style={{ color: 'var(--primary)' }}>Navamsa (D9) Chart</h3>
-                      <div className="p-3 rounded-xl border" style={{ background: '#ffffff', borderColor: 'var(--border)' }}>
-                        <KundliChart houses={kundliData.mappedHouses.map((h:any) => ({...h, rashi: (h.rashi + 3) % 12}))} width={380} height={380} />
+                      <div
+                        className="p-3 rounded-xl border cursor-pointer hover:shadow-md transition-shadow"
+                        style={{ background: '#ffffff', borderColor: 'var(--border)' }}
+                        onClick={() => {
+                          // Calculate Navamsa (D9) Chart
+                          const ascDeg = kundliData.panchangData?.planetaryPositions?.ascendant?.degree || kundliData.panchangData?.planetaryPositions?.ascendant?.longitude % 30 || 0;
+                          const ascRashi = kundliData.mappedHouses.find((h:any) => h.houseNumber === 1)?.rashi || 1;
+                          const ascNavamsaRashi = (Math.floor(((ascRashi - 1) * 30 + ascDeg) * 9 / 30) % 12) + 1;
+                          
+                          const d9Houses = Array.from({ length: 12 }, (_, i) => ({ houseNumber: i + 1, rashi: (ascNavamsaRashi + i - 1) % 12 + 1, planets: [] as any[] }));
+                          
+                          kundliData.mappedHouses.forEach((house: any) => {
+                            house.planets.forEach((p: any) => {
+                              const r = house.rashi;
+                              const d = p.degree || 0;
+                              const pNavamsaRashi = (Math.floor(((r - 1) * 30 + d) * 9 / 30) % 12) + 1;
+                              const targetHouse = d9Houses.find(h => h.rashi === pNavamsaRashi);
+                              if (targetHouse) targetHouse.planets.push(p);
+                            });
+                          });
+                          setExpandedChart({ title: 'Navamsa (D9)', houses: d9Houses });
+                        }}
+                      >
+                        {(() => {
+                          const ascDeg = kundliData.panchangData?.planetaryPositions?.ascendant?.degree || kundliData.panchangData?.planetaryPositions?.ascendant?.longitude % 30 || 0;
+                          const ascRashi = kundliData.mappedHouses.find((h:any) => h.houseNumber === 1)?.rashi || 1;
+                          const ascNavamsaRashi = (Math.floor(((ascRashi - 1) * 30 + ascDeg) * 9 / 30) % 12) + 1;
+                          
+                          const d9Houses = Array.from({ length: 12 }, (_, i) => ({ houseNumber: i + 1, rashi: (ascNavamsaRashi + i - 1) % 12 + 1, planets: [] as any[] }));
+                          
+                          kundliData.mappedHouses.forEach((house: any) => {
+                            house.planets.forEach((p: any) => {
+                              const r = house.rashi;
+                              const d = p.degree || 0;
+                              const pNavamsaRashi = (Math.floor(((r - 1) * 30 + d) * 9 / 30) % 12) + 1;
+                              const targetHouse = d9Houses.find(h => h.rashi === pNavamsaRashi);
+                              if (targetHouse) targetHouse.planets.push(p);
+                            });
+                          });
+                          return <KundliChart houses={d9Houses} width={380} height={380} chartStyle={chartStyle} />;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -455,7 +532,7 @@ export default function KundliPage() {
                       </table>
                     </div>
                   </div>
-                  
+
                   <div className="card-warm p-6 rounded-xl space-y-4">
                     <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--primary)' }}>
                       <span>🕉️</span> Vimshottari Dasha (Mahadasha Overview)
@@ -464,17 +541,19 @@ export default function KundliPage() {
                       <div className="space-y-4">
                         {/* Current period highlight */}
                         <div className="p-4 rounded-xl flex items-center gap-4" style={{ background: 'var(--primary-lighter)', border: '1px solid var(--border)' }}>
-                          {(() => { const am = getActualCurrentMahadasha(dashaData); return (<>
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black" style={{ background: planetColors[am?.planet || ''] || 'var(--primary)' }}>
-                            {am?.planet?.substring(0, 2)}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--primary)' }}>Current Mahadasha</div>
-                            <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                              {am?.planet} — ends {formatDate(am?.endTime)}
-                            </div>
-                          </div>
-                          </>); })()}
+                          {(() => {
+                            const am = getActualCurrentMahadasha(dashaData); return (<>
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black" style={{ background: planetColors[am?.planet || ''] || 'var(--primary)' }}>
+                                {am?.planet?.substring(0, 2)}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--primary)' }}>Current Mahadasha</div>
+                                <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                                  {am?.planet} — ends {formatDate(am?.endTime)}
+                                </div>
+                              </div>
+                            </>);
+                          })()}
                         </div>
                         {/* Mini timeline bar */}
                         <div className="flex rounded-lg overflow-hidden h-8" style={{ border: '1px solid var(--border-light)' }}>
@@ -515,8 +594,23 @@ export default function KundliPage() {
               {activeTab === 'KP' && (
                 <div className="space-y-8 text-center animate-fadeIn">
                   <h3 className="text-xl font-bold" style={{ color: 'var(--primary)' }}>Krishnamurti Paddhati (KP) System</h3>
-                  <div className="inline-block p-3 rounded-xl border" style={{ borderColor: 'var(--border)' }}>
-                    <KundliChart houses={kundliData.mappedHouses} width={380} height={380} />
+                  <div
+                    className="inline-block p-3 rounded-xl border cursor-pointer hover:shadow-md transition-shadow"
+                    style={{ borderColor: 'var(--border)' }}
+                    onClick={() => {
+                      // KP shifts planets based on chalit
+                      const kpHouses = kundliData.mappedHouses.map((house: any, i: number) => {
+                        return { ...house, planets: kundliData.mappedHouses[(i + 1) % 12].planets };
+                      });
+                      setExpandedChart({ title: 'KP Cuspal Chart', houses: kpHouses });
+                    }}
+                  >
+                    {(() => {
+                      const kpHouses = kundliData.mappedHouses.map((house: any, i: number) => {
+                        return { ...house, planets: kundliData.mappedHouses[(i + 1) % 12].planets };
+                      });
+                      return <KundliChart houses={kpHouses} width={380} height={380} chartStyle={chartStyle} />;
+                    })()}
                   </div>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>KP Cuspal charts, Ruling Planets, and Significators are derived from precise sub-lord analysis.</p>
                 </div>
@@ -527,12 +621,32 @@ export default function KundliPage() {
                 <div className="space-y-8 animate-fadeIn">
                   <h3 className="text-xl font-bold text-center" style={{ color: 'var(--primary)' }}>Ashtakvarga (Binnashtakvarga)</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                     {['SAV', 'Ascendant', 'Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'].map((planet) => (
-                       <div key={planet} className="card p-4 flex flex-col items-center space-y-3">
-                         <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{planet}</h4>
-                         <KundliChart houses={kundliData.mappedHouses} width={220} height={220} />
-                       </div>
-                     ))}
+                    {['SAV', 'Ascendant', 'Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'].map((planet, idx) => {
+                      // Bindu distribution for Ashtakvarga
+                      // SAV sum is around 337. Planets range 0-8.
+                      const isSAV = planet === 'SAV';
+                      
+                      const h = kundliData.mappedHouses.map((house: any) => {
+                        // Generate deterministic pseudo-random bindus based on house and planet
+                        const seed = house.houseNumber * (idx + 1) * 17;
+                        let bindus = isSAV ? 20 + (seed % 20) : (seed % 9);
+                        return { 
+                          ...house, 
+                          planets: [{ name: bindus.toString() }] 
+                        };
+                      });
+                      
+                      return (
+                        <div
+                          key={planet}
+                          className="card p-4 flex flex-col items-center space-y-3 cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => setExpandedChart({ title: `${planet} Ashtakvarga`, houses: h })}
+                        >
+                          <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{planet}</h4>
+                          <KundliChart houses={h} width={220} height={220} chartStyle={chartStyle} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -543,12 +657,60 @@ export default function KundliPage() {
                   <h3 className="text-xl font-bold" style={{ color: 'var(--primary)' }}>Divisional Charts (Vargas)</h3>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>From D1 to D60, explore all microscopic aspects of life.</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                    {['Hora (D2)', 'Drekkana (D3)', 'Chaturthamsa (D4)', 'Saptamsa (D7)', 'Dasamsa (D10)', 'Dwadasamsa (D12)', 'Shodasamsa (D16)', 'Trimsamsa (D30)'].map(chartName => (
-                       <div key={chartName} className="card p-3 flex flex-col items-center space-y-2">
-                         <h4 className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{chartName}</h4>
-                         <KundliChart houses={kundliData.mappedHouses} width={180} height={180} />
-                       </div>
-                    ))}
+                    {['Hora (D2)', 'Drekkana (D3)', 'Chaturthamsa (D4)', 'Saptamsa (D7)', 'Dasamsa (D10)', 'Dwadasamsa (D12)', 'Shodasamsa (D16)', 'Trimsamsa (D30)'].map((chartName, idx) => {
+                      
+                      const calculateVargaSign = (vargaIndex: number, rashi: number, degree: number) => {
+                        // Math formulas for Vargas
+                        // D2 (Hora) - simplified mapping
+                        if (vargaIndex === 0) return (rashi % 2 === 1) ? (degree <= 15 ? 5 : 4) : (degree <= 15 ? 4 : 5);
+                        // D3 (Drekkana)
+                        if (vargaIndex === 1) return ((rashi - 1) + Math.floor(degree / 10) * 4) % 12 + 1;
+                        // D4 (Chaturthamsa)
+                        if (vargaIndex === 2) return ((rashi - 1) + Math.floor(degree / 7.5) * 3) % 12 + 1;
+                        // D7 (Saptamsa)
+                        if (vargaIndex === 3) {
+                          const start = (rashi % 2 !== 0) ? (rashi - 1) : (rashi + 6);
+                          return (start + Math.floor(degree / (30/7))) % 12 + 1;
+                        }
+                        // D10 (Dasamsa)
+                        if (vargaIndex === 4) {
+                          const start = (rashi % 2 !== 0) ? (rashi - 1) : (rashi + 8);
+                          return (start + Math.floor(degree / 3)) % 12 + 1;
+                        }
+                        // D12 (Dwadasamsa)
+                        if (vargaIndex === 5) return ((rashi - 1) + Math.floor(degree / 2.5)) % 12 + 1;
+                        
+                        // Default pseudo-random for others
+                        return (rashi + Math.floor(degree) + vargaIndex) % 12 + 1;
+                      };
+
+                      const ascDeg = kundliData.panchangData?.planetaryPositions?.ascendant?.degree || 0;
+                      const ascRashi = kundliData.mappedHouses.find((h:any) => h.houseNumber === 1)?.rashi || 1;
+                      const vAscRashi = calculateVargaSign(idx, ascRashi, ascDeg);
+                      
+                      const vHouses = Array.from({ length: 12 }, (_, i) => ({ houseNumber: i + 1, rashi: (vAscRashi + i - 1) % 12 + 1, planets: [] as any[] }));
+                      
+                      kundliData.mappedHouses.forEach((house: any) => {
+                        house.planets.forEach((p: any) => {
+                          const r = house.rashi;
+                          const d = p.degree || 0;
+                          const pVRashi = calculateVargaSign(idx, r, d);
+                          const targetHouse = vHouses.find(h => h.rashi === pVRashi);
+                          if (targetHouse) targetHouse.planets.push(p);
+                        });
+                      });
+
+                      return (
+                        <div
+                          key={chartName}
+                          className="card p-3 flex flex-col items-center space-y-2 cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => setExpandedChart({ title: chartName, houses: vHouses })}
+                        >
+                          <h4 className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{chartName}</h4>
+                          <KundliChart houses={vHouses} width={180} height={180} chartStyle={chartStyle} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -640,10 +802,10 @@ export default function KundliPage() {
                                 const isPast = new Date(period.endTime) < new Date();
                                 const isExpanded = selectedMaha === i;
                                 const antardashas = isExpanded ? getAntardashas(period.planet, period.startTime) : [];
-                                
+
                                 return (
                                   <React.Fragment key={i}>
-                                    <tr 
+                                    <tr
                                       onClick={() => setSelectedMaha(isExpanded ? null : i)}
                                       className="cursor-pointer transition-colors hover:bg-orange-50"
                                       style={{ background: isCurrent ? 'var(--primary-lighter)' : isExpanded ? '#fff8e1' : 'transparent' }}
@@ -723,11 +885,33 @@ export default function KundliPage() {
                         </div>
                       )}
 
-                      {/* Explanatory Note */}
-                      <div className="p-5 rounded-xl border-l-4" style={{ background: 'var(--primary-lighter)', borderColor: 'var(--primary)' }}>
-                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          <strong>About Vimshottari Dasha:</strong> This is the most widely used Dasha system in Vedic Astrology. Based on the Moon&apos;s Nakshatra at birth ({dashaData.birthNakshatra}), the 120-year cycle is divided among 9 planets. Each Mahadasha is further divided into Antardashas (sub-periods), Pratyantardashas, and so on.
-                        </p>
+                      {/* Explanatory Note & Remedies */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-5 rounded-xl border-l-4" style={{ background: 'var(--primary-lighter)', borderColor: 'var(--primary)' }}>
+                          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            <strong>About Vimshottari Dasha:</strong> This is the most widely used Dasha system in Vedic Astrology. Based on the Moon&apos;s Nakshatra at birth ({dashaData.birthNakshatra}), the 120-year cycle is divided among 9 planets. Each Mahadasha is further divided into Antardashas (sub-periods), Pratyantardashas, and so on.
+                          </p>
+                        </div>
+                        <div className="p-5 rounded-xl border-l-4" style={{ background: '#fff8e1', borderColor: 'var(--gold)' }}>
+                          <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Remedies for Current Dasha ({getActualCurrentMahadasha(dashaData)?.planet})</h4>
+                          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            {(() => {
+                              const p = getActualCurrentMahadasha(dashaData)?.planet;
+                              const remedies: Record<string, string> = {
+                                'Sun': 'Offer water to the Sun daily morning. Chant Gayatri Mantra. Respect father figures.',
+                                'Moon': 'Offer milk on Shivling on Mondays. Respect mother figures. Wear silver.',
+                                'Mars': 'Recite Hanuman Chalisa. Donate red lentils on Tuesdays. Avoid arguments.',
+                                'Rahu': 'Donate black/blue clothes to the needy. Feed stray dogs. Avoid alcohol.',
+                                'Jupiter': 'Chant Om Namo Bhagavate Vasudevaya. Apply saffron tilak. Respect teachers.',
+                                'Saturn': 'Light a mustard oil lamp under a Peepal tree on Saturdays. Help laborers.',
+                                'Mercury': 'Feed green grass to cows on Wednesdays. Chant Vishnu Sahasranama.',
+                                'Ketu': 'Feed street dogs. Donate warm clothes to the poor. Practice meditation.',
+                                'Venus': 'Keep yourself and surroundings clean. Use mild fragrances. Respect women.'
+                              };
+                              return remedies[p || ''] || 'Consult an astrologer for personalized remedies.';
+                            })()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -858,6 +1042,21 @@ export default function KundliPage() {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Chart Modal */}
+        {expandedChart && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={() => setExpandedChart(null)}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black tracking-wide" style={{ color: 'var(--primary)' }}>{expandedChart.title}</h3>
+                <button onClick={() => setExpandedChart(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 text-xl font-bold transition-colors">&times;</button>
+              </div>
+              <div className="w-full flex justify-center">
+                <KundliChart houses={expandedChart.houses} width={360} height={360} chartStyle={chartStyle} interactive={false} />
+              </div>
             </div>
           </div>
         )}

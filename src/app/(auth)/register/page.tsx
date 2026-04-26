@@ -66,6 +66,24 @@ function RegisterForm() {
     setLoading(false);
   };
 
+  const handleOAuth = async (provider: 'google' | 'facebook') => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+  };
+
   return (
     <main style={{ background: 'var(--surface)' }} className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -159,6 +177,35 @@ function RegisterForm() {
             <button type="submit" disabled={loading} className="btn-primary w-full py-3 disabled:opacity-50">
               {loading ? '⏳ Creating Account...' : accountType === 'astrologer' ? '🧘 Register as Astrologer' : '📜 Create Free Account'}
             </button>
+
+            <div className="flex items-center gap-3 my-4">
+              <hr className="flex-1 border-t" style={{ borderColor: 'var(--border-light)' }} />
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>OR</span>
+              <hr className="flex-1 border-t" style={{ borderColor: 'var(--border-light)' }} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                type="button" 
+                onClick={() => handleOAuth('google')}
+                disabled={loading}
+                className="btn-secondary py-3 flex justify-center items-center gap-2"
+                style={{ background: '#ffffff', color: '#757575', border: '1px solid #e0e0e0' }}
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                <span className="text-sm">Google</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleOAuth('facebook')}
+                disabled={loading}
+                className="btn-secondary py-3 flex justify-center items-center gap-2"
+                style={{ background: '#1877F2', color: '#ffffff', border: '1px solid #1877F2' }}
+              >
+                <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-5 h-5 brightness-0 invert" />
+                <span className="text-sm">Facebook</span>
+              </button>
+            </div>
           </form>
         </div>
 
