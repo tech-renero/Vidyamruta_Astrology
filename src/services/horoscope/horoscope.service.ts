@@ -18,6 +18,17 @@ export interface DailyHoroscope {
   lucky_number: number | null;
   lucky_color: string | null;
   week_label: string | null;
+  career_prediction?: string | null;
+  finance_prediction?: string | null;
+  health_prediction?: string | null;
+  romance_prediction?: string | null;
+  career_rating?: number | null;
+  finance_rating?: number | null;
+  health_rating?: number | null;
+  romance_rating?: number | null;
+  lucky_time?: string | null;
+  color_hex?: string | null;
+  mood?: string | null;
 }
 
 /**
@@ -56,14 +67,13 @@ export async function getTodayHoroscope(sign: string): Promise<DailyHoroscope | 
     .select('*')
     .eq('sunsign', sign.toLowerCase())
     .eq('horoscope_date', today)
-    .maybeSingle()
-    .returns<DailyHoroscope[]>();
+    .maybeSingle();
 
   if (error) {
     console.error(`Error fetching today's horoscope for ${sign}:`, error);
   }
 
-  return data ?? null;
+  return (data as unknown as DailyHoroscope) ?? null;
 }
 
 /**
