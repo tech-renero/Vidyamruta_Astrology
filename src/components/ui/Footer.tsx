@@ -1,11 +1,16 @@
 import Link from 'next/link';
 
+import Image from 'next/image';
+import logoImage from '@/assets/site-essentials/Vidyamruta.svg'
+import sitelogo from '@/assets/site-essentials/Site-favicon.svg'
+
 const footerLinks = {
   'Services': [
     { href: '/kundli', label: 'Kundli Generation' },
     { href: '/horoscope', label: 'Daily Horoscope' },
     { href: '/matching', label: 'Kundli Matching' },
     { href: '/panchang', label: 'Daily Panchang' },
+    { href: '/vastu', label: 'Vastu Consultation' },
   ],
   'Company': [
     { href: '/consultations', label: 'Book Consultation' },
@@ -29,8 +34,22 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🙏</span>
-              <span className="text-xl font-extrabold" style={{ color: 'var(--primary)' }}>Vidyamruta</span>
+              <span className="text-2xl">
+                <Image
+                  src={sitelogo}
+                  alt="Vidyamruta Logo"
+                  width={50} // Define exact width
+                  height={50} // Define exact height
+                  priority    // Add priority since it is a logo
+                /></span>
+              <span className="text-xl font-extrabold" style={{ color: 'var(--primary)' }}>
+                <Image
+                  src={logoImage}
+                  alt="Vidyamruta Logo"
+                  width={150} // Define exact width
+                  height={50} // Define exact height
+                  priority    // Add priority since it is a logo
+                /></span>
             </div>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               Unveil the cosmic blueprint of your destiny with authentic Vedic Astrology. Precise calculations, ancient wisdom, modern interface.
@@ -62,7 +81,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="mt-16 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4" style={{ borderTop: '1px solid var(--border-light)' }}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            © {new Date().getFullYear()} Vidyamruta. All rights reserved. Powered by Vedic Wisdom.
+            © {new Date().getFullYear()} All rights reserved. Powered by Vidyamruta.
           </p>
           <div className="flex gap-6">
             <Link href="#" className="text-xs hover:underline" style={{ color: 'var(--text-muted)' }}>Privacy Policy</Link>

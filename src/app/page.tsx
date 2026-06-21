@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { zodiacSigns } from '@/lib/horoscope-data';
+import Image from 'next/image';
 
 const features = [
   {
@@ -70,7 +71,7 @@ export default function Home() {
               <span>🪷</span>
               <span>Ancient Wisdom, Modern Precision</span>
             </div>
-            
+
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-tight animate-fadeInUp animate-delay-100">
               <span style={{ color: 'var(--text-primary)' }}>Your Cosmic </span>
               <span style={{ background: 'linear-gradient(135deg, var(--primary), var(--gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Blueprint</span>
@@ -125,7 +126,15 @@ export default function Home() {
                 className="zodiac-card animate-fadeInUp"
                 style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
               >
-                <div className="zodiac-icon">{sign.symbol}</div>
+                <div className="relative w-auto h-30 mb-3">
+                  <Image
+                    src={`/zodiac/${sign.name}.webp`}
+                    alt={`${sign.name} sign`}
+                    fill
+                    className="object-contain"
+                    sizes="104px"
+                  />
+                </div>
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{sign.name}</h3>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sign.dateRange}</p>
               </Link>

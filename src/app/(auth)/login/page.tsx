@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/utils/supabase/client';
 
 export default function LoginPage() {
@@ -103,7 +104,7 @@ export default function LoginPage() {
                 className="btn-secondary py-3 flex justify-center items-center gap-2"
                 style={{ background: '#ffffff', color: '#757575', border: '1px solid #e0e0e0' }}
               >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                <Image src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width={20} height={20} unoptimized />
                 <span className="text-sm">Google</span>
               </button>
               <button 
@@ -113,7 +114,7 @@ export default function LoginPage() {
                 className="btn-secondary py-3 flex justify-center items-center gap-2"
                 style={{ background: '#1877F2', color: '#ffffff', border: '1px solid #1877F2' }}
               >
-                <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-5 h-5 brightness-0 invert" />
+                <Image src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" width={20} height={20} className="brightness-0 invert" unoptimized />
                 <span className="text-sm">Facebook</span>
               </button>
             </div>

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/fetch-horoscopes",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

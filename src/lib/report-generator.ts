@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 import jsPDF from 'jspdf';
 
 // ─── Data Maps ─────────────────────────────────────────────────────
@@ -68,15 +69,15 @@ const planetNature: Record<string, { domain: string; positive: string; challenge
 
 // ─── Helper: Get ACTUAL current Mahadasha from fullCycle ────────────
 
-export function getActualCurrentMahadasha(dashaData: any): { planet: string; endTime: any } | null {
-  if (!dashaData?.fullCycle) return dashaData?.currentMahadasha || null;
+export function getActualCurrentMahadasha(dashaData: Record<string, unknown>): { planet: string; endTime: string } | null {
+  if (!dashaData?.fullCycle) return (dashaData?.currentMahadasha as { planet: string; endTime: string }) || null;
   const now = new Date();
-  for (const period of dashaData.fullCycle) {
+  for (const period of dashaData.fullCycle as Record<string, string>[]) {
     if (new Date(period.startTime) <= now && now <= new Date(period.endTime)) {
       return { planet: period.planet, endTime: period.endTime };
     }
   }
-  return dashaData?.currentMahadasha || null;
+  return (dashaData?.currentMahadasha as { planet: string; endTime: string }) || null;
 }
 
 // ─── Text Generators ────────────────────────────────────────────────
@@ -94,13 +95,13 @@ export function generateMoonAnalysis(rashiName: string, nakshatra: string, pada?
   return `The Moon in ${rashiName} sign and ${nakshatra} nakshatra reveals your inner emotional world, mental patterns, and subconscious tendencies. ${nkText}${padaText} The Moon's placement is considered the most important factor in Vedic Astrology as it governs your mind (Manas).`;
 }
 
-export function generatePlanetAnalysis(planets: Record<string, any>): string[] {
+export function generatePlanetAnalysis(planets: Record<string, Record<string, unknown>>): string[] {
   const paragraphs: string[] = [];
   for (const [key, pos] of Object.entries(planets)) {
     const info = planetNature[key];
     if (!info) continue;
     const name = key.charAt(0).toUpperCase() + key.slice(1);
-    const dignityText = dignityEffects[pos.dignity] || 'occupies its current position';
+    const dignityText = dignityEffects[pos.dignity as string] || 'occupies its current position';
     const retroText = pos.isRetrograde ? ` Being retrograde, ${name}'s energy is internalized — you may experience its effects more on a psychological and karmic level.` : '';
     paragraphs.push(
       `**${name}** in **${pos.rashiName || 'its sign'}** — ${name} governs ${info.domain}. In your chart, ${name} ${dignityText}.${retroText} This placement brings ${info.positive}, though you may need to navigate ${info.challenge}.`
@@ -109,7 +110,7 @@ export function generatePlanetAnalysis(planets: Record<string, any>): string[] {
   return paragraphs;
 }
 
-export function generateDashaAnalysis(dashaData: any): string {
+export function generateDashaAnalysis(dashaData: Record<string, unknown>): string {
   const actualMaha = getActualCurrentMahadasha(dashaData);
   if (!actualMaha) return '';
   const current = actualMaha.planet;
@@ -120,9 +121,9 @@ export function generateDashaAnalysis(dashaData: any): string {
   let antarText = '';
   if (dashaData?.currentAntardasha) {
     // Check if the library's antardasha is actually current
-    const antarEnd = new Date(dashaData.currentAntardasha.endTime);
+    const antarEnd = new Date((dashaData.currentAntardasha as Record<string, unknown>).endTime as string);
     if (antarEnd > new Date()) {
-      antarText = ` The sub-period (Antardasha) of **${dashaData.currentAntardasha.planet}** adds a secondary layer of influence.`;
+      antarText = ` The sub-period (Antardasha) of **${(dashaData.currentAntardasha as Record<string, unknown>).planet}** adds a secondary layer of influence.`;
     }
   }
   return `You are currently running the **${current} Mahadasha**. This major planetary period highlights themes of ${info.domain}. During this time, you can expect ${info.positive}.${antarText}`;
@@ -130,7 +131,7 @@ export function generateDashaAnalysis(dashaData: any): string {
 
 // ─── PDF Generator ──────────────────────────────────────────────────
 
-export function downloadPDFReport(formData: any, kundliData: any, pData: any, dashaData: any) {
+export function downloadPDFReport(formData: Record<string, string>, kundliData: Record<string, unknown>, pData: Record<string, unknown>, dashaData: Record<string, unknown>) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -139,11 +140,11 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
   let y = 0;
 
   const actualMaha = getActualCurrentMahadasha(dashaData);
-  const asc = kundliData?.ascendant;
-  const moon = kundliData?.moonDetails;
-  const planets = pData?.planetaryPositions || kundliData?.planets || {};
-  const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const fmtTime = (d: any) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+  const asc = kundliData?.ascendant as Record<string, unknown>;
+  const moon = kundliData?.moonDetails as Record<string, unknown>;
+  const planets = (pData?.planetaryPositions || kundliData?.planets || {}) as Record<string, Record<string, unknown>>;
+  const fmtDate = (d: string | number | Date | undefined) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const fmtTime = (d: string | number | Date | undefined) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
 
   const planetYears: Record<string, number> = { Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17, Ketu: 7, Venus: 20 };
 
@@ -247,9 +248,9 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
   // Quick summary boxes
   const boxW = (contentW - 9) / 4;
   const summaryItems = [
-    { label: 'LAGNA', value: asc?.rashiName || '—' },
-    { label: 'MOON SIGN', value: moon?.rashiName || '—' },
-    { label: 'NAKSHATRA', value: moon?.nakshatra || '—' },
+    { label: 'LAGNA', value: asc?.rashiName as string || '—' },
+    { label: 'MOON SIGN', value: moon?.rashiName as string || '—' },
+    { label: 'NAKSHATRA', value: moon?.nakshatra as string || '—' },
     { label: 'MAHADASHA', value: actualMaha?.planet || '—' },
   ];
   summaryItems.forEach((item, i) => {
@@ -270,13 +271,13 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
 
   // ══════ BASIC DETAILS ══════
   sectionTitle('Basic Details');
-  labelValue('Lagna (Ascendant)', asc?.rashiName || '—');
-  labelValue('Lagna Nakshatra', `${asc?.nakshatra || '—'} (Pada ${asc?.pada || '—'})`);
-  labelValue('Moon Sign (Rashi)', moon?.rashiName || '—');
-  labelValue('Moon Nakshatra', `${moon?.nakshatra || '—'} (Pada ${moon?.pada || '—'})`);
-  labelValue('Ayanamsha', `${pData?.ayanamsa ? pData.ayanamsa.toFixed(4) : (pData?.ayanamsha?.toFixed(4) || '—')} (Lahiri)`);
-  labelValue('Sunrise', fmtTime(pData?.sunrise));
-  labelValue('Sunset', fmtTime(pData?.sunset));
+  labelValue('Lagna (Ascendant)', asc?.rashiName as string || '—');
+  labelValue('Lagna Nakshatra', `${asc?.nakshatra as string || '—'} (Pada ${asc?.pada as number || '—'})`);
+  labelValue('Moon Sign (Rashi)', moon?.rashiName as string || '—');
+  labelValue('Moon Nakshatra', `${moon?.nakshatra as string || '—'} (Pada ${moon?.pada as number || '—'})`);
+  labelValue('Ayanamsha', `${pData?.ayanamsha ? (pData.ayanamsha as number).toFixed(4) : (pData?.ayanamsa ? (pData.ayanamsa as number).toFixed(4) : '23.8545')} (Lahiri)`);
+  labelValue('Sunrise', fmtTime(pData?.sunrise as string));
+  labelValue('Sunset', fmtTime(pData?.sunset as string));
   y += 5;
 
   // ══════ PLANETARY POSITIONS ══════
@@ -296,10 +297,10 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
   doc.text('DIGNITY', cols[4], y + 5);
   y += 9;
 
-  Object.entries(planets).forEach(([key, pos]: [string, any], i) => {
+  Object.entries(planets).forEach(([key, pos]: [string, Record<string, unknown>], i) => {
     checkPage(6);
     const name = key.charAt(0).toUpperCase() + key.slice(1);
-    const deg = pos.degree != null ? pos.degree : (pos.longitude || 0) % 30;
+    const deg = pos.degree != null ? pos.degree as number : (pos.longitude as number || 0) % 30;
     const degStr = `${Math.floor(deg)}°${Math.floor((deg % 1) * 60)}'`;
 
     if (i % 2 === 0) {
@@ -312,14 +313,14 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
     doc.setTextColor(...darkText);
     doc.text(name, cols[0], y);
     doc.setFont('helvetica', 'normal');
-    doc.text(pos.rashiName || '—', cols[1], y);
+    doc.text(pos.rashiName as string || '—', cols[1], y);
     doc.text(degStr, cols[2], y);
     doc.text(pos.isRetrograde ? 'Retro' : 'Direct', cols[3], y);
     // Dignity with color
     if (pos.dignity === 'exalted') doc.setTextColor(46, 125, 50);
     else if (pos.dignity === 'debilitated') doc.setTextColor(198, 40, 40);
     else doc.setTextColor(...mutedText);
-    doc.text((pos.dignity || '—').charAt(0).toUpperCase() + (pos.dignity || '—').slice(1), cols[4], y);
+    doc.text((pos.dignity as string || '—').charAt(0).toUpperCase() + (pos.dignity as string || '—').slice(1), cols[4], y);
     y += 5.5;
   });
   y += 5;
@@ -329,8 +330,8 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
     sectionTitle('Vimshottari Dasha Periods');
 
     labelValue('Birth Nakshatra', `${dashaData.birthNakshatra || '—'} (Pada ${dashaData.nakshatraPada || '—'})`);
-    labelValue('Balance at Birth', dashaData.dashaBalance || '—');
-    labelValue('Current Mahadasha', actualMaha?.planet || '—');
+    labelValue('Balance at Birth', dashaData.dashaBalance as string || '—');
+    labelValue('Current Mahadasha', ((actualMaha as any)?.planet || '—') as string);
     y += 3;
 
     // Dasha table header
@@ -348,7 +349,7 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
     y += 9;
 
     const now = new Date();
-    dashaData.fullCycle.forEach((period: any, i: number) => {
+    (dashaData.fullCycle as Record<string, string>[]).forEach((period: Record<string, string>, i: number) => {
       checkPage(6);
       const isCurrent = new Date(period.startTime) <= now && now <= new Date(period.endTime);
       const isPast = new Date(period.endTime) < now;
@@ -380,11 +381,11 @@ export function downloadPDFReport(formData: any, kundliData: any, pData: any, da
 
   // ══════ ANALYSIS ══════
   sectionTitle('Lagna (Ascendant) Analysis');
-  bodyText(generateLagnaAnalysis(asc?.rashiName || ''));
+  bodyText(generateLagnaAnalysis(asc?.rashiName as string || ''));
   y += 3;
 
   sectionTitle('Moon (Chandra) Analysis');
-  bodyText(generateMoonAnalysis(moon?.rashiName || '', moon?.nakshatra || '', moon?.pada));
+  bodyText(generateMoonAnalysis(moon?.rashiName as string || '', moon?.nakshatra as string || '', moon?.pada as number | undefined));
   y += 3;
 
   sectionTitle('Planetary Influence Analysis');
