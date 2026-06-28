@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { zodiacSigns } from '@/lib/horoscope-data';
 import Image from 'next/image';
+import { Analytics } from '@vercel/analytics/next';
 
 const features = [
   {
@@ -252,6 +253,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <Analytics />
     </main>
   );
 }
