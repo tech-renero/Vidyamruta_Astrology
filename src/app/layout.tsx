@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
           <div className="flex-1">{children}</div>
           <Footer />
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
