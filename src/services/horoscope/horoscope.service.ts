@@ -126,3 +126,23 @@ export async function getHoroscopeHistory(
 
   return data ?? [];
 }
+
+/**
+ * Fetches the weekly quote from the Vidyamruta Star quotes table.
+ */
+export async function getStarQuote(sign: string): Promise<string | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('Vidyamruta Star quotes')
+    .select('Quotes')
+    .eq('Zodiac', sign.toLowerCase())
+    .maybeSingle();
+
+  if (error) {
+    console.error(`Error fetching star quote for ${sign}:`, error);
+    return null;
+  }
+
+  return data?.Quotes ?? null;
+}

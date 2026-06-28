@@ -442,7 +442,7 @@ export default function DashboardPage() {
                         style={{ background: 'var(--surface-warm)', border: '1px solid var(--border-light)' }}
                       >
                         <Image
-                          src={`/images/zodiac/${sign.id}.png`}
+                          src={`/zodiac/${sign.id}.webp`}
                           alt={`${sign.name} zodiac sign`}
                           fill
                           className="object-contain p-2"

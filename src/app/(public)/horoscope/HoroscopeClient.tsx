@@ -38,10 +38,8 @@ function SignSelector({ signs, selectedId, onSelect }: { signs: ZodiacSign[]; se
             boxShadow: selectedId === sign.id ? 'var(--shadow-md)' : 'none',
           }}
         >
-          {/* Replaced symbol text with Image component */}
           <div className="relative w-10 h-10">
             <Image
-              // Ensure the filename here matches the exact casing of your file (e.g., Aries.webp)
               src={`/zodiac/${sign.name}.webp`}
               alt={sign.name}
               fill
@@ -71,11 +69,13 @@ function RatingStars({ rating }: { rating: number }) {
 export default function HoroscopeClient({
   initialSign,
   todayHoroscope,
-  weeklyHistory
+  weeklyHistory,
+  starQuote
 }: {
   initialSign: string;
   todayHoroscope: DailyHoroscope | null;
   weeklyHistory: DailyHoroscope[];
+  starQuote: string | null;
 }) {
   const router = useRouter();
   const [selectedSignId, setSelectedSignId] = useState(initialSign);
@@ -97,7 +97,6 @@ export default function HoroscopeClient({
     router.push(`/horoscope?sign=${id}`);
   };
 
-  // Helper functions to grab specific data based on the active category tab
   const getCategoryPrediction = (cat: CategoryKey) => {
     if (!todayHoroscope) return selectedSign.dailyPrediction;
     switch (cat) {
@@ -124,7 +123,6 @@ export default function HoroscopeClient({
     }
   };
 
-  // Safe fallback for compatibility strings which might be stored as an array or comma string
   const displayCompatibility = todayHoroscope?.compatibility
     ? Array.isArray(todayHoroscope.compatibility) ? todayHoroscope.compatibility.join(', ') : todayHoroscope.compatibility
     : selectedSign.compatibility;
@@ -190,15 +188,12 @@ export default function HoroscopeClient({
                   <div className="text-lg font-black" style={{ color: 'var(--primary)' }}>{todayHoroscope?.lucky_number || selectedSign.luckyNumber}</div>
                   <div className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>Number</div>
                 </div>
-
-                {/* Dynamically colors the icon based on AstroJSON Hex Code */}
                 <div className="p-3 rounded-xl" style={{ background: '#fff8e1' }}>
                   <div className="flex justify-center mb-1 h-[28px] items-center">
                     <div className="w-5 h-5 rounded-full shadow-sm" style={{ backgroundColor: todayHoroscope?.color_hex || '#f57f17' }}></div>
                   </div>
                   <div className="text-[10px] font-bold truncate" style={{ color: 'var(--text-muted)' }}>{todayHoroscope?.lucky_color || selectedSign.luckyColor}</div>
                 </div>
-
                 <div className="p-3 rounded-xl" style={{ background: '#e8f5e9' }}>
                   <div className="flex justify-center mb-1 h-[28px] items-center">
                     <span className="text-lg">🕒</span>
@@ -220,7 +215,7 @@ export default function HoroscopeClient({
           {/* Right Panel — Prediction */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* Main Tabs (Daily vs History) */}
+            {/* Main Tabs */}
             <div className="flex flex-wrap gap-2">
               {tabs.map(tab => (
                 <button
@@ -254,11 +249,9 @@ export default function HoroscopeClient({
                 </div>
               </div>
 
-              {/* ONLY show Category Sub-tabs if looking at Daily */}
+              {/* Category Sub-tabs */}
               {activeTab === 'daily' && (
                 <div className="space-y-6 animate-fadeIn">
-
-                  {/* Category Pills */}
                   <div className="flex flex-wrap gap-2">
                     {categories.map(cat => (
                       <button
@@ -274,7 +267,6 @@ export default function HoroscopeClient({
                     ))}
                   </div>
 
-                  {/* Focused Prediction Box */}
                   <div className="p-6 rounded-xl border space-y-4" style={{ backgroundColor: '#fafafa', borderColor: 'var(--border-light)' }}>
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <h4 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
@@ -312,9 +304,10 @@ export default function HoroscopeClient({
                 </div>
               )}
 
+              {/* Dynamic Quote Section */}
               <div className="p-5 rounded-xl border-l-4 mt-6" style={{ background: 'var(--primary-lighter)', borderColor: 'var(--primary)' }}>
-                <p className="text-sm italic font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  &quot;The stars impel, they do not compel. Awareness of these cosmic influences allows you to navigate your karma with wisdom and grace.&quot;
+                <p className="text-sm italic font-medium whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                  {starQuote || '"The stars impel, they do not compel. Awareness of these cosmic influences allows you to navigate your karma with wisdom and grace."'}
                 </p>
               </div>
             </div>
