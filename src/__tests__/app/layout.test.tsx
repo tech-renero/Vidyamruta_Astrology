@@ -1,10 +1,16 @@
 import { render } from '@testing-library/react';
 import RootLayout from '@/app/layout';
 
-// Mock the Geist fonts since they are imported from next/font/google
+// Mock the fonts since they are imported from next/font/google
 jest.mock('next/font/google', () => ({
   Geist: () => ({ variable: 'mock-geist-sans' }),
   Geist_Mono: () => ({ variable: 'mock-geist-mono' }),
+  Inter: () => ({ variable: 'mock-inter' }),
+}));
+
+// Mock Vercel Analytics
+jest.mock('@vercel/analytics/next', () => ({
+  Analytics: () => null,
 }));
 
 describe('RootLayout', () => {
